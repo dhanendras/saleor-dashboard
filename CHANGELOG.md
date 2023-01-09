@@ -17,6 +17,7 @@ All notable, unreleased changes to this project will be documented in this file.
 - Enable save button on page pages - #2325 by @orzechdev
 - Fix pagination errors on voucher and sale pages - #2317 by @orzechdev
 - Add format tip for text attribute rows - #2340 by @orzechdev
+- Add redirect to GraphiQL from product & order details pages - #2940 by @zaiste
 
 ## 3.4
 

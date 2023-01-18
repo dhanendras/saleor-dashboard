@@ -39,6 +39,7 @@ const isAsyncWebhookInPreview = (webhook: WebhookEventType) =>
     ] as WebhookEventType[]
   ).includes(webhook);
 
+// FIXME to remove
 export function mapSyncEventsToChoices(
   events: WebhookEventTypeSyncEnum[],
 ): MultiAutocompleteChoiceType[] {
@@ -49,6 +50,7 @@ export function mapSyncEventsToChoices(
   }));
 }
 
+// FIXME to remove
 export function mapAsyncEventsToChoices(
   events: WebhookEventTypeAsyncEnum[],
   selectedEvents: WebhookEventTypeAsyncEnum[],

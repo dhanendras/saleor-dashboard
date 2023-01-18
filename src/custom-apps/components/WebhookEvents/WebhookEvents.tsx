@@ -9,10 +9,10 @@ import { capitalize } from "@dashboard/misc";
 import { Card, CardContent, Checkbox, Typography } from "@material-ui/core";
 import {
   List,
+  ListBody,
   ListHeader,
   ListItem,
   ListItemCell,
-  makeStyles,
   PageTab,
   PageTabPanel,
   PageTabs,
@@ -23,42 +23,7 @@ import React, { useState } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
 
 import { messages } from "./messages";
-
-const useStyles = makeStyles(
-  theme => ({
-    eventsWrapper: {
-      overflow: "scroll",
-      padding: theme.spacing(4),
-      paddingLeft: 0,
-    },
-    objectsWrapper: {
-      borderRight: "1px solid",
-      borderRightColor: theme.palette.divider,
-      padding: theme.spacing(3),
-    },
-    listHeader: {
-      textTransform: "uppercase",
-      padding: theme.spacing(1),
-      minHeight: 0,
-    },
-    listItem: {
-      minHeight: 0,
-      gap: 0,
-      padding: theme.spacing(1),
-    },
-    listItemCell: {
-      paddingLeft: "0 !important",
-    },
-    listItems: {
-      height: 300,
-      overflow: "scroll",
-    },
-    checkbox: {
-      padding: 0,
-    },
-  }),
-  { name: "WebhookEvents" },
-);
+import { useStyles } from "./styles";
 interface WebhookEventsProps {
   data: {
     syncEvents: WebhookEventTypeSyncEnum[];
@@ -78,7 +43,7 @@ const WebhookEvents: React.FC<WebhookEventsProps> = ({
   const { checkbox } = useListWidths();
 
   const [tab, setTab] = useState("async");
-  const [object, setObject] = useState<string | null>(null);
+  const [object, setObject] = useState(null);
 
   const handleEventChange = event => {
     if (tab === "sync") {
@@ -140,7 +105,7 @@ const WebhookEvents: React.FC<WebhookEventsProps> = ({
                     <ListItemCell></ListItemCell>
                   </ListItem>
                 </ListHeader>
-                <div className={classes.listItems}>
+                <ListBody className={classes.listBody}>
                   {Object.keys(EventTypes[tab]).map((object, idx) => (
                     <ListItem
                       key={idx}
@@ -165,7 +130,7 @@ const WebhookEvents: React.FC<WebhookEventsProps> = ({
                       </ListItemCell>
                     </ListItem>
                   ))}
-                </div>
+                </ListBody>
               </List>
             </PageTabPanel>
           </div>
@@ -178,28 +143,30 @@ const WebhookEvents: React.FC<WebhookEventsProps> = ({
                   </ListItemCell>
                 </ListItem>
               </ListHeader>
-              {object &&
-                EventTypes[tab][object] &&
-                EventTypes[tab][object].map((event, idx) => (
-                  <ListItem className={classes.listItem} key={idx}>
-                    <ListItemCell className={classes.listItemCell}>
-                      <strong>
-                        {capitalize(event.toLowerCase().replaceAll("_", " "))}
-                      </strong>
-                    </ListItemCell>
-                    <ListItemCell>
-                      <Checkbox
-                        name={`${tab}Events`}
-                        checked={data[`${tab}Events`].includes(
-                          getEventName(object, event),
-                        )}
-                        value={getEventName(object, event)}
-                        onChange={handleEventChange}
-                        className={classes.checkbox}
-                      />
-                    </ListItemCell>
-                  </ListItem>
-                ))}
+              <ListBody className={classes.listBody}>
+                {object &&
+                  EventTypes[tab][object] &&
+                  EventTypes[tab][object].map((event, idx) => (
+                    <ListItem className={classes.listItem} key={idx}>
+                      <ListItemCell className={classes.listItemCell}>
+                        <strong>
+                          {capitalize(event.toLowerCase().replaceAll("_", " "))}
+                        </strong>
+                      </ListItemCell>
+                      <ListItemCell>
+                        <Checkbox
+                          name={`${tab}Events`}
+                          checked={data[`${tab}Events`].includes(
+                            getEventName(object, event),
+                          )}
+                          value={getEventName(object, event)}
+                          onChange={handleEventChange}
+                          className={classes.checkbox}
+                        />
+                      </ListItemCell>
+                    </ListItem>
+                  ))}
+              </ListBody>
             </List>
           </div>
         </Grid>
@@ -212,7 +179,7 @@ export default WebhookEvents;
 
 type Actions = string[];
 
-const AsyncWebhookTypes: Record<string, Actions> = {
+export const AsyncWebhookTypes: Record<string, Actions> = {
   ADDRESS: ["CREATED", "UPDATED", "DELETED"],
   APP: ["INSTALLED", "UPDATED", "DELETED"],
   ATTRIBUTE: ["CREATED", "UPDATED", "DELETED"],

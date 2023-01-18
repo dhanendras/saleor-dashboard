@@ -1,7 +1,10 @@
+import { WebhookEventTypeAsyncEnum } from "@dashboard/graphql";
 import {
   CopyIcon,
   GraphiQLProvider,
   GraphiQLProviderProps,
+  KeyboardShortcutIcon,
+  PlayIcon,
   PrettifyIcon,
   QueryEditor,
   ToolbarButton,
@@ -15,20 +18,18 @@ import {
   usePrettifyEditors,
   UseQueryEditorArgs,
   UseResponseEditorArgs,
-  useTheme as useGraphiqlTheme,
   UseVariableEditorArgs,
   WriteableEditorProps,
 } from "@graphiql/react";
-import { useTheme } from "@saleor/macaw-ui";
-import clsx from "clsx";
+import { makeStyles, useTheme } from "@saleor/macaw-ui";
 import React, {
   ComponentType,
   PropsWithChildren,
   ReactNode,
-  useEffect,
+  useState,
 } from "react";
 
-import { useStyles } from "./styles";
+import { DryRun } from "../DryRun";
 
 export interface GraphiQLToolbarConfig {
   /**
@@ -71,13 +72,16 @@ export function GraphiQL({
   visiblePlugin,
   defaultHeaders,
   ...props
-}: GraphiQLProps) {
+}: GraphiQLProps & { asyncEvents: WebhookEventTypeAsyncEnum[] }) {
   // Ensure props are correct
   if (typeof fetcher !== "function") {
     throw new TypeError(
       "The `GraphiQL` component requires a `fetcher` function to be passed as prop.",
     );
   }
+
+  const [showDialog, setShowDialog] = useState(false);
+  const [result, setResult] = useState("");
 
   return (
     <GraphiQLProvider
@@ -109,7 +113,19 @@ export function GraphiQL({
       validationRules={validationRules}
       variables={variables}
     >
-      <GraphiQLInterface {...props} />
+      <GraphiQLInterface
+        {...props}
+        showDialog={showDialog}
+        setShowDialog={setShowDialog}
+        result={result}
+      />
+      <DryRun
+        showDialog={showDialog}
+        setShowDialog={setShowDialog}
+        query={query}
+        setResult={setResult}
+        asyncEvents={props.asyncEvents}
+      />
     </GraphiQLProvider>
   );
 }
@@ -128,16 +144,46 @@ export type GraphiQLInterfaceProps = WriteableEditorProps &
   AddSuffix<Pick<UseHeaderEditorArgs, "onEdit">, "Headers"> &
   Pick<UseResponseEditorArgs, "responseTooltip"> & {
     children?: ReactNode;
+    /**
+     * Set the default state for the editor tools.
+     * - `false` hides the editor tools
+     * - `true` shows the editor tools
+     * - `'variables'` specifically shows the variables editor
+     * - `'headers'` specifically shows the headers editor
+     * By default the editor tools are initially shown when at least one of the
+     * editors has contents.
+     */
     defaultEditorToolsVisibility?: boolean | "variables" | "headers";
+    /**
+     * Toggle if the headers editor should be shown inside the editor tools.
+     * @default true
+     */
     isHeadersEditorEnabled?: boolean;
+    /**
+     * An object that allows configuration of the toolbar next to the query
+     * editor.
+     */
     toolbar?: GraphiQLToolbarConfig;
+
+    // TODO
+    showDialog?: boolean;
+    setShowDialog?: React.Dispatch<React.SetStateAction<boolean>>;
+    result?: string;
   };
 
+const useStyles = makeStyles(
+  () => ({
+    pre: {
+      whiteSpace: "break-spaces",
+    },
+  }),
+  { name: "GraphiQLInterface" },
+);
+
 export function GraphiQLInterface(props: GraphiQLInterfaceProps) {
+  const classes = useStyles();
   const editorContext = useEditorContext({ nonNull: true });
   const pluginContext = usePluginContext();
-
-  const classes = useStyles({});
 
   const copy = useCopyQuery({ onCopyQuery: props.onCopyQuery });
   const prettify = usePrettifyEditors();
@@ -148,6 +194,11 @@ export function GraphiQLInterface(props: GraphiQLInterfaceProps) {
     defaultSizeRelation: 1 / 3,
     direction: "horizontal",
     initiallyHidden: pluginContext?.visiblePlugin ? undefined : "first",
+    onHiddenElementChange: resizableElement => {
+      if (resizableElement === "first") {
+        // pluginContext?.setVisiblePlugin(null);
+      }
+    },
     sizeThresholdSecond: 200,
     storageKey: "docExplorerFlex",
   });
@@ -158,6 +209,22 @@ export function GraphiQLInterface(props: GraphiQLInterfaceProps) {
   const editorToolsResize = useDragResize({
     defaultSizeRelation: 3,
     direction: "vertical",
+    // initiallyHidden: (() => {
+    //   if (
+    //     props.defaultEditorToolsVisibility === 'variables' ||
+    //     props.defaultEditorToolsVisibility === 'headers'
+    //   ) {
+    //     return undefined;
+    //   }
+
+    //   if (typeof props.defaultEditorToolsVisibility === 'boolean') {
+    //     return props.defaultEditorToolsVisibility ? undefined : 'second';
+    //   }
+
+    //   return editorContext.initialVariables || editorContext.initialHeaders
+    //     ? undefined
+    //     : 'second';
+    // })(),
     sizeThresholdSecond: 60,
     storageKey: "secondaryEditorFlex",
   });
@@ -168,6 +235,10 @@ export function GraphiQLInterface(props: GraphiQLInterfaceProps) {
     isChildComponentType(child, GraphiQL.Toolbar),
   ) || (
     <>
+      <ToolbarButton onClick={() => props.setShowDialog(true)} label="Dry run">
+        <PlayIcon className="graphiql-toolbar-icon" aria-hidden="true" />
+      </ToolbarButton>
+
       <ToolbarButton
         onClick={() => prettify()}
         label="Prettify query (Shift-Ctrl-P)"
@@ -197,17 +268,9 @@ export function GraphiQLInterface(props: GraphiQLInterfaceProps) {
     "--font-size-inline-code": theme.typography.caption.fontSize,
   } as React.CSSProperties;
 
-  const { theme: graphiqlTheme, setTheme: setGraphiqlTheme } =
-    useGraphiqlTheme();
-  useEffect(() => {
-    if (theme.themeType !== graphiqlTheme) {
-      setGraphiqlTheme(theme.themeType);
-    }
-  });
-
   return (
     <div
-      data-test-id="graphiql-container"
+      data-testid="graphiql-container"
       className="graphiql-container"
       style={rootStyle}
     >
@@ -240,15 +303,15 @@ export function GraphiQLInterface(props: GraphiQLInterfaceProps) {
           })}
         </div>
         <div className="graphiql-sidebar-section">
-          {/* <Tooltip label="Open short keys dialog">
+          <Tooltip label="Open short keys dialog">
             <UnStyledButton
               type="button"
-              onClick={() => setShowDialog('short-keys')}
+              onClick={() => props.setShowDialog(true)}
               aria-label="Open short keys dialog"
             >
               <KeyboardShortcutIcon aria-hidden="true" />
             </UnStyledButton>
-          </Tooltip> */}
+          </Tooltip>
         </div>
       </div>
       <div className="graphiql-main">
@@ -260,7 +323,7 @@ export function GraphiQLInterface(props: GraphiQLInterfaceProps) {
             minWidth: "200px",
           }}
         >
-          <div className={clsx("graphiql-plugin", classes.scrollable)}>
+          <div className="graphiql-plugin">
             {PluginContent ? <PluginContent /> : null}
           </div>
         </div>
@@ -310,6 +373,14 @@ export function GraphiQLInterface(props: GraphiQLInterfaceProps) {
                         {toolbar}
                       </div>
                     </section>
+                  </div>
+                </div>
+                <div ref={editorResize.dragBarRef}>
+                  <div className="graphiql-horizontal-drag-bar" />
+                </div>
+                <div ref={editorResize.secondRef}>
+                  <div className="graphiql-response">
+                    <pre className={classes.pre}>{props.result}</pre>
                   </div>
                 </div>
               </div>
